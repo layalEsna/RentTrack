@@ -1,9 +1,9 @@
 from flask import Flask, request, make_response, jsonify, session, redirect, url_for, send_from_directory
 from flask_restful import Api, Resource
 from flask_cors import CORS
-from config import Config
+from server.config import Config
 # from server.config import Config
-from extensions import db, ma  # Import extensions from extensions.py
+from server.extensions import db, ma  # Import extensions from extensions.py
 # from server.extensions import db, ma  # Import extensions from extensions.py
 from datetime import datetime, timedelta, date
 from dotenv import load_dotenv

@@ -2,7 +2,7 @@ from server.extensions import db, bcrypt,ma  # Use db from extensions.py
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
 from sqlalchemy.orm import validates, relationship
 from werkzeug.security import generate_password_hash, check_password_hash
-
+from marshmallow import fields
 from flask_marshmallow import Marshmallow
 from datetime import date
 import re
@@ -30,17 +30,21 @@ class Landlord(db.Model):
         if len(username) < 3 or len(username) > 50:
             raise ValueError('username must be between 3 and 50 characters')
         return username
+    
     @property
     def password(self):
         raise AttributeError('password is read only')
+    
     @password.setter
     def password(self, password):
-        pattern = re.compile(r'^(?=.*\w)(?=.*[!@#$%^&*]).{6,}$')
+        pattern = re.compile(r'^(?=.*[A-Z])(?=.*[!@#$%^&*]).{6,}$')
         if not password or not isinstance(password, str):
             raise ValueError('password is required and must be a string')
         if not pattern.match(password):
-            raise ValueError('Password must contain at least one uppercase or lowercase letter, number, or underscore. It must contain at least one symbol (!@#$%^&*), and be between 6 and 100 characters in length.')
+            raise ValueError('password must be at least 6 characters and include at least an upper case and a symbol(!@#$%^&*)')
+        
         self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+    
     def check_password(self, password):
         result = bcrypt.check_password_hash(self.password_hash, password)
         return result
@@ -77,7 +81,7 @@ class Tenant(db.Model):
     @validates('occupation')
     def validate_occupation(self, key, occupation):
         if not occupation or not isinstance(occupation, str):
-            raise ValueError('foccupation is required and must be a string')
+            raise ValueError('occupation is required and must be a string')
         if len(occupation) < 3 or len(occupation) > 50:
             raise ValueError('occupation must be between 3 and 50 characters')
         return occupation
@@ -160,7 +164,63 @@ landlord_property_type = db.Table(
     db.Column('property_type_id', db.Integer, db.ForeignKey('property_types.id'), primary_key=True)
 )
 
+class TenantSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Tenant
+        include_relationship = True
+        load_instance = True
+
+    id = ma.auto_field()
+    first_name = ma.auto_field()
+    last_name = ma.auto_field()
+    occupation = ma.auto_field()
+    landlord_id = ma.auto_field()
+
+    landlord = ma.Nested('LandlordSchema', exclude=('tenants',))
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('rental_buildings',))
 
 
+class RentalBuildingSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = RentalBuilding
+        include_relationship = True
+        load_instance = True
 
+    id = ma.auto_field()
+    address = ma.auto_field()
+    starting_date = ma.Date(format='%Y-%m-%d')
+    ending_date = ma.Date(format='%Y-%m-%d')
+    landlord_id = ma.auto_field()
+    tenant_id = ma.auto_field()
+    property_type_id = ma.auto_field()
 
+    landlord = ma.Nested('LandlordSchema', exclude=('rental_buildings',))
+    tenant = ma.Nested('TenantSchema', exclude=('rental_buildings',))
+    property_type = ma.Nested('PropertyTypeSchema', exclude=('rental_buildings',))
+
+class PropertyTypeSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = PropertyType
+        load_instance = True
+        include_relationship = True
+
+    id = ma.auto_field()
+    property_type_name = ma.auto_field()
+
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('property_type',))
+    landlords = ma.Nested('LandlordSchema', many=True, exclude=('property_types',))
+
+class LandlordSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Landlord
+        load_instance = True
+        include_relationship = True
+        exclude = ('password_hash',)
+
+    id = ma.auto_field()
+    username = ma.auto_field()
+    password = fields.String(load_only=True)
+
+    tenants = ma.Nested('TenantSchema', many=True, exclude=('landlord',))
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('landlord',))
+    property_types = ma.Nested('PropertyTypeSchema', many=True, exclude=('landlords',))
