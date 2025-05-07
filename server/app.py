@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from flask_migrate import Migrate
 from marshmallow import ValidationError
 from collections import defaultdict
+from server.models import Landlord, Tenant, RentalBuilding, PropertyType  # or whatever your models are
 
 # from flask import send_from_directory
 
