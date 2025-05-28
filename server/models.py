@@ -6,14 +6,14 @@ from marshmallow import fields
 from flask_marshmallow import Marshmallow
 from datetime import date
 import re
-
+# rental_bulding
 
 class Landlord(db.Model):
 
     __tablename__ = 'landlords'
     
     id = db.Column(db.Integer, nullable=False, primary_key=True)
- 
+
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(100), nullable=False)
 
@@ -23,6 +23,8 @@ class Landlord(db.Model):
 
     property_types = db.relationship('PropertyType', secondary='landlord_property_type', back_populates='landlords')
     
+    def property_by_name(self, type_name):
+        return [b for b in self.rental_buildings if b.property_type.property_type_name == type_name]
     @validates('username')
     def validate_username(self, key, username):
         if not username or not isinstance(username, str):
@@ -93,6 +95,34 @@ class Tenant(db.Model):
         if not pattern.match(telephone):
             raise ValueError('telephone must match xxx-xxx-xxxx format')
         return telephone
+class Payment(db.Model):
+    __tablename__ = 'payments'
+
+    id = db.Column(db.Integer, primary_key=True, nullable=False)
+    monthly_price = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Integer, nullable=False)
+    payment_status = db.Column(db.Boolean, nullable=False)
+    payment_date = db.Column(db.Date, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    payment_period = db.Column(db.String(7), nullable=False)
+    rental_building_id = db.Column(db.Integer, db.ForeignKey('rental_buildings.id'))
+
+    rental_building = db.relationship('RentalBuilding', back_populates='payments')
+
+    @validates('price')
+    def validate_price(self, key, price):
+        if not price or not isinstance(price, int):
+            raise ValueError('price is required and must be a number')
+        if price < 100:
+            raise ValueError('price must be greater than 100')
+        return price
+    @validates('payment_status')
+    def validate_payment_status(self, key, payment_status):
+        if payment_status is None or not isinstance(payment_status, bool):
+            raise ValueError('payment_status is required and must be a status')
+        return payment_status
+    
+
 
 class RentalBuilding(db.Model):
 
@@ -101,7 +131,7 @@ class RentalBuilding(db.Model):
     id = db.Column(db.Integer, nullable=False, primary_key=True)
  
     address = db.Column(db.String(200), nullable=False, unique=True)
-    price = db.Column(db.Integer, nullable=False)
+    # price = db.Column(db.Integer, nullable=False)
     starting_date = db.Column(db.Date, nullable=False)
     ending_date = db.Column(db.Date, nullable=False)
     landlord_id = db.Column(db.Integer, db.ForeignKey('landlords.id'))
@@ -112,6 +142,8 @@ class RentalBuilding(db.Model):
     tenant = db.relationship('Tenant', back_populates='rental_buildings' )
     property_type = db.relationship('PropertyType', back_populates='rental_buildings')
 
+    payments = db.relationship('Payment', back_populates='rental_building', cascade=('all, delete-orphan'))
+
     @validates('address')
     def validate_address(self, key, address):
         if not address or not isinstance(address, str):
@@ -119,13 +151,13 @@ class RentalBuilding(db.Model):
         if len(address) < 3 or len(address) > 200:
             raise ValueError('address must be between 3 and 200 characters')
         return address
-    @validates('price')
-    def validate_price(self, key, price):
-        if not price or not isinstance(price, int):
-            raise ValueError('price is required and must be a number')
-        if price < 100:
-            raise ValueError('price must be greater than 100')
-        return price
+    # @validates('price')
+    # def validate_price(self, key, price):
+    #     if not price or not isinstance(price, int):
+    #         raise ValueError('price is required and must be a number')
+    #     if price < 100:
+    #         raise ValueError('price must be greater than 100')
+    #     return price
     @validates('starting_date')
     def validate_starting_date(self, key, starting_date):
         if not starting_date or not isinstance(starting_date, date):
@@ -138,6 +170,34 @@ class RentalBuilding(db.Model):
         if self.starting_date and ending_date <= self.starting_date:
             raise ValueError('ending date must be after starting date')
         return ending_date
+# class Payment(db.Model):
+#     __tablename__ = 'payments'
+
+#     id = db.Column(db.Integer, primary_key=True, nullable=False)
+#     monthly_price = db.Column(db.Integer, nullable=False)
+#     price = db.Column(db.Integer, nullable=False)
+#     payment_status = db.Column(db.Boolean, nullable=False)
+#     payment_date = db.Column(db.Date, nullable=False)
+#     due_date = db.Column(db.Date, nullable=False)
+#     payment_period = db.Column(db.String(7), nullable=False)
+#     rental_building_id = db.Column(db.Integer, db.ForeignKey('rental_buildings.id'))
+
+#     rental_building = db.relationship('RentalBuilding', back_populates='payments')
+
+#     @validates('price')
+#     def validate_price(self, key, price):
+#         if not price or not isinstance(price, int):
+#             raise ValueError('price is required and must be a number')
+#         if price < 100:
+#             raise ValueError('price must be greater than 100')
+#         return price
+#     @validates('payment_status')
+#     def validate_payment_status(self, key, payment_status):
+#         if payment_status is None or not isinstance(payment_status, bool):
+#             raise ValueError('payment_status is required and must be a status')
+#         return payment_status
+    
+
 
 class PropertyType(db.Model):
 
