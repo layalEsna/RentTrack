@@ -23,6 +23,7 @@ import os
 # Initialize Flask app
 app = Flask(__name__)
 # app = Flask(__name__, static_folder='../client/build', static_url_path='/')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
 
 # Set app configurations
