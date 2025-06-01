@@ -220,7 +220,6 @@ class TenantSchema(ma.SQLAlchemyAutoSchema):
     landlord_id = ma.auto_field()
 
     landlord = ma.Nested('LandlordSchema', only=('id','username'))
-    # rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('tenant', 'landlord'))
     rental_buildings = ma.Nested('RentalBuildingSchema', many=True, only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id', 'tenant'))
 
 
