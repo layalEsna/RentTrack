@@ -104,8 +104,11 @@ if __name__ == '__main__':
         print("✅ Created property types")
 
         # Create Landlords
-        landlord1 = Landlord(username='JohnDoe', password='Password123!')
-        landlord2 = Landlord(username='JaneSmith', password='Password456!')
+        # landlord1 = Landlord(username='JohnDoe', password='Password123!')
+        landlord1 = Landlord(username='JohnDoe')
+        landlord1.password = 'Password123!'
+        landlord2 = Landlord(username='JaneSmith')
+        landlord2.password='Password456!'
         landlord1.property_types.extend([apartment, house])
         landlord2.property_types.extend([condo])
         db.session.add_all([landlord1, landlord2])

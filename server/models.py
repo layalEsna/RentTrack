@@ -6,7 +6,7 @@ from marshmallow import fields
 from flask_marshmallow import Marshmallow
 from datetime import date
 import re
-# rental_bulding
+
 
 class Landlord(db.Model):
 
@@ -151,13 +151,7 @@ class RentalBuilding(db.Model):
         if len(address) < 3 or len(address) > 200:
             raise ValueError('address must be between 3 and 200 characters')
         return address
-    # @validates('price')
-    # def validate_price(self, key, price):
-    #     if not price or not isinstance(price, int):
-    #         raise ValueError('price is required and must be a number')
-    #     if price < 100:
-    #         raise ValueError('price must be greater than 100')
-    #     return price
+    
     @validates('starting_date')
     def validate_starting_date(self, key, starting_date):
         if not starting_date or not isinstance(starting_date, date):
@@ -170,34 +164,7 @@ class RentalBuilding(db.Model):
         if self.starting_date and ending_date <= self.starting_date:
             raise ValueError('ending date must be after starting date')
         return ending_date
-# class Payment(db.Model):
-#     __tablename__ = 'payments'
-
-#     id = db.Column(db.Integer, primary_key=True, nullable=False)
-#     monthly_price = db.Column(db.Integer, nullable=False)
-#     price = db.Column(db.Integer, nullable=False)
-#     payment_status = db.Column(db.Boolean, nullable=False)
-#     payment_date = db.Column(db.Date, nullable=False)
-#     due_date = db.Column(db.Date, nullable=False)
-#     payment_period = db.Column(db.String(7), nullable=False)
-#     rental_building_id = db.Column(db.Integer, db.ForeignKey('rental_buildings.id'))
-
-#     rental_building = db.relationship('RentalBuilding', back_populates='payments')
-
-#     @validates('price')
-#     def validate_price(self, key, price):
-#         if not price or not isinstance(price, int):
-#             raise ValueError('price is required and must be a number')
-#         if price < 100:
-#             raise ValueError('price must be greater than 100')
-#         return price
-#     @validates('payment_status')
-#     def validate_payment_status(self, key, payment_status):
-#         if payment_status is None or not isinstance(payment_status, bool):
-#             raise ValueError('payment_status is required and must be a status')
-#         return payment_status
     
-
 
 class PropertyType(db.Model):
 
@@ -224,6 +191,22 @@ landlord_property_type = db.Table(
     db.Column('property_type_id', db.Integer, db.ForeignKey('property_types.id'), primary_key=True)
 )
 
+class LandlordSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Landlord
+        load_instance = True
+        include_relationship = True
+        exclude = ('password_hash',)
+
+    id = ma.auto_field()
+    username = ma.auto_field()
+    password = fields.String(load_only=True)
+
+    tenants = ma.Nested('TenantSchema', many=True, only=('id', 'first_name', 'last_name', 'telephone', 'occupation', 'landlord_id'))
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id', 'payments'))
+    property_types = ma.Nested('PropertyTypeSchema', many=True, only=('id', 'property_type_name'))
+
+
 class TenantSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Tenant
@@ -236,8 +219,10 @@ class TenantSchema(ma.SQLAlchemyAutoSchema):
     occupation = ma.auto_field()
     landlord_id = ma.auto_field()
 
-    landlord = ma.Nested('LandlordSchema', exclude=('tenants',))
-    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('rental_buildings',))
+    # landlord = ma.Nested('LandlordSchema', exclude=('tenants', 'rental_buildings'))
+    landlord = ma.Nested('LandlordSchema', only=('id','username'))
+    # rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('tenant', 'landlord'))
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id', 'tenant'))
 
 
 class RentalBuildingSchema(ma.SQLAlchemyAutoSchema):
@@ -254,9 +239,14 @@ class RentalBuildingSchema(ma.SQLAlchemyAutoSchema):
     tenant_id = ma.auto_field()
     property_type_id = ma.auto_field()
 
-    landlord = ma.Nested('LandlordSchema', exclude=('rental_buildings',))
-    tenant = ma.Nested('TenantSchema', exclude=('rental_buildings',))
-    property_type = ma.Nested('PropertyTypeSchema', exclude=('rental_buildings',))
+    # landlord = ma.Nested('LandlordSchema', exclude=('rental_buildings',))
+    landlord = ma.Nested('LandlordSchema', only=('id', 'username'))
+    # tenant = ma.Nested('TenantSchema', exclude=('rental_buildings',))
+    tenant = ma.Nested('TenantSchema', only=('id', 'first_name', 'last_name', 'telephone', 'occupation', 'landlord_id'))
+    # property_type = ma.Nested('PropertyTypeSchema', exclude=('rental_buildings',))
+    property_type = ma.Nested('PropertyTypeSchema', only=('id','property_type_name'))
+    # payments = ma.Nested('PaymentSchema', many=True, only=('id', 'monthly_price', 'price', 'payment_status', 'payment_date', 'due_date', 'payment_period', 'rental_building_id'))
+    payments = ma.Nested('PaymentSchema', many=True)
 
 class PropertyTypeSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -267,20 +257,39 @@ class PropertyTypeSchema(ma.SQLAlchemyAutoSchema):
     id = ma.auto_field()
     property_type_name = ma.auto_field()
 
-    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('property_type',))
-    landlords = ma.Nested('LandlordSchema', many=True, exclude=('property_types',))
+    # rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('property_type',))
+    # landlords = ma.Nested('LandlordSchema', many=True, exclude=('property_types',))
+    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id'))
+    landlords = ma.Nested('LandlordSchema', many=True, only=('id', 'username'))
 
-class LandlordSchema(ma.SQLAlchemyAutoSchema):
+# class LandlordSchema(ma.SQLAlchemyAutoSchema):
+#     class Meta:
+#         model = Landlord
+#         load_instance = True
+#         include_relationship = True
+#         exclude = ('password_hash',)
+
+#     id = ma.auto_field()
+#     username = ma.auto_field()
+#     password = fields.String(load_only=True)
+
+#     tenants = ma.Nested('TenantSchema', many=True, only=('id', 'first_name', 'last_name', 'telephone', 'occupation', 'landlord_id'))
+#     rental_buildings = ma.Nested('RentalBuildingSchema', many=True, only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id'))
+#     property_types = ma.Nested('PropertyTypeSchema', many=True, only=('id', 'property_type_name'))
+
+class PaymentSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Landlord
+        model = Payment
         load_instance = True
         include_relationship = True
-        exclude = ('password_hash',)
 
     id = ma.auto_field()
-    username = ma.auto_field()
-    password = fields.String(load_only=True)
+    monthly_price = ma.auto_field()
+    price = ma.auto_field()
+    payment_status = ma.auto_field()
+    payment_date = ma.Date(format='%Y-%m-%d')
+    due_date = ma.Date(format='%Y-%m-%d')
+    payment_period = ma.auto_field()
+    rental_building_id = ma.auto_field()
 
-    tenants = ma.Nested('TenantSchema', many=True, exclude=('landlord',))
-    rental_buildings = ma.Nested('RentalBuildingSchema', many=True, exclude=('landlord',))
-    property_types = ma.Nested('PropertyTypeSchema', many=True, exclude=('landlords',))
+    # rental_building = ma.Nested('RentalBuildingSchema', only=('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id'))
