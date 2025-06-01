@@ -11,7 +11,7 @@ from flask_migrate import Migrate
 from marshmallow import ValidationError
 from collections import defaultdict
 from server.models import Landlord, Tenant, RentalBuilding, PropertyType, Payment, LandlordSchema, PropertyTypeSchema, RentalBuildingSchema
-
+import re
 # from server.models import Landlord, Tenant, RentalBuilding, PropertyType  # or whatever your models are
 
 # from flask import send_from_directory andlordSchema
@@ -61,15 +61,7 @@ class CheckSession(Resource):
         landlord_data = landlord_schema.dump(landlord)
         return landlord_data, 200
         
-        # property_type_date = [
-        #     {
-        #         **PropertyTypeSchema(only=('id', 'property_type_name')).dump(pt),
-        #         'rental_buildings': [
-        #             RentalBuildingSchema=(only('id', 'address', 'starting_date', 'ending_date', 'landlord_id', 'tenant_id', 'property_type_id')).dump(rb)
-        #         ]
-        #         for rb in 
-        #     }
-        # ]
+        
 class Login(Resource):
     def post(self):
         
@@ -91,11 +83,60 @@ class Login(Resource):
         landlord_data = landlord_schema.dump(landlord)
         return landlord_data, 200
 
+class Signup(Resource):
+    def post(self):
+
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        confirmed_password = data.get('confirmed_password')
+
+        existing_landlord = Landlord.query.filter(Landlord.username == username).first()
+
+        pattern = re.compile(r'^(?=.*[A-Z])(?=.*[!@#$%^&*]).{6,}$')
+
+        if not username or not isinstance(username, str):
+            return {'error': 'username is required and must be a string'}, 400
+        if len(username) < 3 or len(username) > 50:
+            return {'error': 'username must be between 3 and 50 characters'}, 400
+        if existing_landlord:
+            return {'error': 'username already exists'}, 400
+        
+        if not password or not isinstance(password, str):
+            return {'error': 'password is required and must be a string'}, 400
+        if len(password) < 6 or len(password) > 100:
+            return {'error': 'password must be between 6 and 100 characters'}, 400
+        if not pattern.match(password):
+            return {'error': 'password must be at least 6 characters and include at least an upper case and a symbol(!@#$%^&*)'}
+        
+        if not confirmed_password or not isinstance(confirmed_password, str):
+            return {'error': 'confirmed_password is required and must be a string'}, 400
+        if password != confirmed_password:
+            return {'error': "password doesn't match"}, 400
+        
+        new_landlord = Landlord()
+        new_landlord.username = username
+        new_landlord.password = password
+        
+
+        db.session.add(new_landlord)
+        db.session.commit()
+
+        session['landlord_id'] = new_landlord.id
+        session.permanent = True
+
+        landlord_schema = LandlordSchema()
+        
+
+        return landlord_schema.dump(new_landlord), 201
 
 
+
+        
                 
 api.add_resource(CheckSession, '/check_session')    
 api.add_resource(Login, '/login')    
+api.add_resource(Signup, '/signup')    
 
 
 if __name__ == '__main__':
