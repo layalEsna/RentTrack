@@ -131,12 +131,62 @@ class Signup(Resource):
         return landlord_schema.dump(new_landlord), 201
 
 
+class NewRentalBuilding(Resource):
+    def post(self):
+
+        landlord_id = session.get('landlord_id')
+        if not landlord_id:
+            return {'error': 'unauthorized'}, 401
+        landlord = Landlord.query.filter(Landlord.id == landlord_id).first()
+        if not landlord:
+            return {'error': 'landlord not found'}, 404
+        data = request.get_json()
+        address = data.get('address')
+        starting_date = data.get('starting_date')
+        ending_date = data.get('ending_date')
+        # landlord_id = data.get('landlord_id')
+        tenant_id = data.get('tenant_id')
+        property_type_id = data.get('property_type_id')
+
+        if not address or not isinstance(address, str):
+            return {'error': 'address is required and must be a string'}, 400
+        if len(address) < 3 or len(address) > 200:
+            return {'error':'address must be between 3 and 200 characters'}, 400
+        
+        try:
+            starting_date = datetime.strptime(starting_date, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return {'error': 'starting_date must be a valid date in YYYY-MM-DD format.'}, 400
+        try:
+            ending_date = datetime.strptime(ending_date, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            return {'error': 'ending_date must be a valid date in YYYY-MM-DD format.'}, 400
+        
+        existing_building = RentalBuilding.query.filter(RentalBuilding.address == address).first()
+        if existing_building:
+            return {'error': 'A rental building with this address already exists'}, 400
+
+
+        new_rental_building = RentalBuilding(
+            address = address,
+            starting_date = starting_date,
+            ending_date = ending_date,
+            landlord_id = landlord_id,
+            tenant_id = tenant_id,
+            property_type_id = property_type_id
+        )
+
+        db.session.add(new_rental_building)
+        db.session.commit()
+
+        return RentalBuildingSchema().dump(new_rental_building)
 
         
                 
 api.add_resource(CheckSession, '/check_session')    
 api.add_resource(Login, '/login')    
-api.add_resource(Signup, '/signup')    
+api.add_resource(Signup, '/signup')
+api.add_resource(NewRentalBuilding, '/rental_buildings/new')    
 
 
 if __name__ == '__main__':
