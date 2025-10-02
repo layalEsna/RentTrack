@@ -114,9 +114,10 @@ class Signup(Resource):
         if password != confirmed_password:
             return {'error': "password doesn't match"}, 400
         
-        new_landlord = Landlord()
-        new_landlord.username = username
-        new_landlord.password = password
+        # new_landlord = Landlord()
+        # new_landlord.username = username
+        # new_landlord.password = password
+        new_landlord = Landlord(username=username, password=password)
         
 
         db.session.add(new_landlord)
@@ -179,7 +180,7 @@ class NewRentalBuilding(Resource):
         db.session.add(new_rental_building)
         db.session.commit()
 
-        return RentalBuildingSchema().dump(new_rental_building)
+        return RentalBuildingSchema().dump(new_rental_building), 201
 
         
                 
